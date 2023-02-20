@@ -90,20 +90,21 @@ mediawiki_initialize() {
     # Check if mediawiki has already been initialized and persisted in a previous run
     local -r app_name="mediawiki"
     local db_host db_port db_name db_user db_pass
-    if ! is_app_initialized "$app_name"; then
+
+    db_host="$MEDIAWIKI_DATABASE_HOST"
+    db_port="$MEDIAWIKI_DATABASE_PORT_NUMBER"
+    db_name="$MEDIAWIKI_DATABASE_NAME"
+    db_user="$MEDIAWIKI_DATABASE_USER"
+    db_pass="$MEDIAWIKI_DATABASE_PASSWORD"
+    info "Trying to connect to the database server"
+    mediawiki_wait_for_db_connection "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass"
+
+    if ! echo "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '${MEDIAWIKI_DATABASE_NAME}'" | mediawiki_sql_execute | grep "${MEDIAWIKI_DATABASE_NAME}"; then
         # Ensure the MediaWiki base directory exists and has proper permissions
         info "Configuring file permissions for MediaWiki"
         ensure_dir_exists "$MEDIAWIKI_VOLUME_DIR"
         # Use daemon:root ownership for compatibility when running as a non-root user
         am_i_root && configure_permissions_ownership "$MEDIAWIKI_VOLUME_DIR" -d "775" -f "664" -u "$WEB_SERVER_DAEMON_USER" -g "root"
-
-        db_host="$MEDIAWIKI_DATABASE_HOST"
-        db_port="$MEDIAWIKI_DATABASE_PORT_NUMBER"
-        db_name="$MEDIAWIKI_DATABASE_NAME"
-        db_user="$MEDIAWIKI_DATABASE_USER"
-        db_pass="$MEDIAWIKI_DATABASE_PASSWORD"
-        info "Trying to connect to the database server"
-        mediawiki_wait_for_db_connection "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass"
 
         # Perform initial bootstrap of the database
         if ! is_boolean_yes "$MEDIAWIKI_SKIP_BOOTSTRAP"; then
@@ -140,14 +141,6 @@ mediawiki_initialize() {
     else
         info "Restoring persisted MediaWiki installation"
         restore_persisted_app "$app_name" "$MEDIAWIKI_DATA_TO_PERSIST"
-        info "Trying to connect to the database server"
-        db_host="$(mediawiki_conf_get "\$wgDBserver")"
-        db_name="$(mediawiki_conf_get "\$wgDBname")"
-        db_user="$(mediawiki_conf_get "\$wgDBuser")"
-        db_pass="$(mediawiki_conf_get "\$wgDBpassword")"
-        # The port number option is only supported for PostgreSQL, so rely on environment variables instead
-        db_port="$MEDIAWIKI_DATABASE_PORT_NUMBER"
-        mediawiki_wait_for_db_connection "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass"
         # Perform MediaWiki database schema upgrade
         debug_execute php "${MEDIAWIKI_BASE_DIR}/maintenance/update.php"
     fi
