@@ -99,7 +99,7 @@ mediawiki_initialize() {
     info "Trying to connect to the database server"
     mediawiki_wait_for_db_connection "$db_host" "$db_port" "$db_name" "$db_user" "$db_pass"
 
-    if ! echo "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '${MEDIAWIKI_DATABASE_NAME}'" | mediawiki_sql_execute | grep "${MEDIAWIKI_DATABASE_NAME}"; then
+    if echo "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${MEDIAWIKI_DATABASE_NAME}'" | mediawiki_sql_execute | awk '$NF!=0 {print; err = 1} END {exit err}'; then
         # Ensure the MediaWiki base directory exists and has proper permissions
         info "Configuring file permissions for MediaWiki"
         ensure_dir_exists "$MEDIAWIKI_VOLUME_DIR"

@@ -10,7 +10,10 @@
     Options -Indexes +FollowSymLinks -MultiViews
     AllowOverride {{allow_override}}
     {{acl_configuration}}
-    {{extra_directory_configuration}}
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php?title=$1 [NC,L,QSA]
   </Directory>
   {{additional_https_configuration}}
   {{additional_configuration}}
